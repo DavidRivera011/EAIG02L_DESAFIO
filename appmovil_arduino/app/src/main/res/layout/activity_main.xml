@@ -12,7 +12,6 @@
         android:gravity="center_horizontal"
         android:padding="24dp">
 
-        <!-- Encabezado -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -22,39 +21,23 @@
             android:textStyle="bold"
             android:layout_marginTop="12dp" />
 
-        <!-- Configuración de conexión -->
-        <EditText
-            android:id="@+id/etArduinoIp"
-            android:layout_width="match_parent"
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:hint="IP del Arduino (ej. 192.168.1.100)"
-            android:inputType="text"
-            android:singleLine="true"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#B7C7DD"
-            android:backgroundTint="#B7C7DD"
-            android:padding="12dp"
-            android:layout_marginTop="16dp" />
+            android:text="CONTROL POR BLUETOOTH BLE"
+            android:textColor="#B7C7DD"
+            android:textSize="14sp"
+            android:layout_marginTop="6dp" />
 
         <Button
             android:id="@+id/btnConectar"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="CONECTAR CON ARDUINO"
+            android:text="BUSCAR Y CONECTAR POR BLE"
             android:textStyle="bold"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="20dp"
             android:backgroundTint="#286B52" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ARDUINO UNO R4 WIFI"
-            android:textColor="#B7C7DD"
-            android:textSize="14sp"
-            android:layout_marginTop="6dp" />
-
-        <!-- Escudo: espacio reservado -->
-        <!-- Escudo del FC Barcelona -->
         <ImageView
             android:id="@+id/imgBarcelona"
             android:layout_width="110dp"
@@ -65,12 +48,11 @@
             android:layout_marginTop="12dp"
             android:layout_marginBottom="8dp" />
 
-        <!-- Estado de conexión -->
         <TextView
             android:id="@+id/txtConexion"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Wi-Fi: desconectado"
+            android:text="Bluetooth BLE: desconectado"
             android:textColor="#FFCC80"
             android:textSize="16sp"
             android:gravity="center"
@@ -78,7 +60,6 @@
             android:background="#25364F"
             android:layout_marginTop="12dp" />
 
-        <!-- Lectura del sensor -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -101,7 +82,6 @@
             android:background="#25364F"
             android:layout_marginTop="8dp" />
 
-        <!-- Control manual -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -143,12 +123,11 @@
             android:id="@+id/btnDetener"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:text="■  DETENER MOTOR"
+            android:text="■ DETENER MOTOR"
             android:textStyle="bold"
             android:layout_marginTop="12dp"
             android:backgroundTint="#A52643" />
 
-        <!-- Control automático -->
         <Button
             android:id="@+id/btnAutomatico"
             android:layout_width="match_parent"
@@ -178,5 +157,4 @@
             android:layout_marginTop="12dp" />
 
     </LinearLayout>
-
 </ScrollView>
