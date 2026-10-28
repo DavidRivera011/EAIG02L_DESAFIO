@@ -12,6 +12,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 import java.util.concurrent.Executors
+import android.content.res.ColorStateList
+import android.graphics.Color
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,6 +22,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var txtConexion: TextView
     private lateinit var txtDistancia: TextView
     private lateinit var txtEstadoMotor: TextView
+    private lateinit var btnAutomatico: Button
+    private lateinit var btnManual: Button
 
     private val executor = Executors.newSingleThreadExecutor()
     private val handler = Handler(Looper.getMainLooper())
@@ -55,6 +59,8 @@ class MainActivity : AppCompatActivity() {
         txtConexion = findViewById(R.id.txtConexion)
         txtDistancia = findViewById(R.id.txtDistancia)
         txtEstadoMotor = findViewById(R.id.txtEstadoMotor)
+        btnAutomatico = findViewById(R.id.btnAutomatico)
+        btnManual = findViewById(R.id.btnManual)
 
         // Recuperar la IP guardada anteriormente.
         val ipGuardada = preferencias.getString("arduino_ip", "") ?: ""
@@ -243,6 +249,27 @@ class MainActivity : AppCompatActivity() {
         }
 
         txtEstadoMotor.text = "Motor: $motor\nModo: $modo"
+
+        // Destacar visualmente el modo confirmado por Arduino.
+        if (modo == "AUTOMATICO") {
+            btnAutomatico.backgroundTintList =
+                ColorStateList.valueOf(Color.parseColor("#2E9B70"))
+
+            btnManual.backgroundTintList =
+                ColorStateList.valueOf(Color.parseColor("#46546A"))
+
+            btnAutomatico.text = "✓ MODO AUTOMÁTICO ACTIVO"
+            btnManual.text = "VOLVER A MODO MANUAL"
+        } else {
+            btnAutomatico.backgroundTintList =
+                ColorStateList.valueOf(Color.parseColor("#286B52"))
+
+            btnManual.backgroundTintList =
+                ColorStateList.valueOf(Color.parseColor("#174E83"))
+
+            btnAutomatico.text = "ACTIVAR MODO AUTOMÁTICO"
+            btnManual.text = "✓ MODO MANUAL ACTIVO"
+        }
     }
 
     override fun onDestroy() {
