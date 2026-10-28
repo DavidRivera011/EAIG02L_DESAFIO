@@ -1,17 +1,26 @@
-#include <WiFiS3.h>
-#include "arduino_secrets.h"
+#include <ArduinoBLE.h>
 
 // =====================================================
-// WIFI Y SERVIDOR HTTP LOCAL
+// BLUETOOTH BLE
 // =====================================================
-char ssid[] = SECRET_SSID;
-char pass[] = SECRET_PASS;
+BLEService controlService(
+  "19B10000-E8F2-537E-4F6C-D104768A1214"
+);
 
-WiFiServer server(80);
-bool servidorIniciado = false;
+BLEStringCharacteristic commandCharacteristic(
+  "19B10001-E8F2-537E-4F6C-D104768A1214",
+  BLEWrite,
+  20
+);
+
+BLEStringCharacteristic statusCharacteristic(
+  "19B10002-E8F2-537E-4F6C-D104768A1214",
+  BLERead | BLENotify,
+  128
+);
 
 // =====================================================
-// SENSOR HC-SR04: CONEXIONES DEL PROYECTO ORIGINAL
+// SENSOR HC-SR04: CONEXIONES ORIGINALES
 // =====================================================
 const int VCC_PIN = A0;
 const int TRIG_PIN = A1;
@@ -43,6 +52,9 @@ uint8_t motorDirectionBits = 0;
 
 unsigned long ultimaMedicion = 0;
 const unsigned long INTERVALO_MEDICION = 100;
+
+unsigned long ultimaNotificacion = 0;
+const unsigned long INTERVALO_NOTIFICACION = 250;
 
 // =====================================================
 // CONTROL DEL REGISTRO DEL SHIELD
@@ -92,10 +104,8 @@ void aplicarEstadoMotor(const String& nuevoEstado) {
     return;
   }
 
-  // Detener el motor antes de cambiar su dirección.
   analogWrite(MOTOR_PWM_PIN, 0);
 
-  // Limpiar los bits de dirección correspondientes a M1.
   motorDirectionBits &= ~(
     (1 << MOTOR1_A) |
     (1 << MOTOR1_B)
@@ -134,7 +144,7 @@ void detenerMotor() {
 }
 
 // =====================================================
-// SENSOR ULTRASONICO HC-SR04
+// SENSOR HC-SR04
 // =====================================================
 float medirDistancia() {
   digitalWrite(TRIG_PIN, LOW);
@@ -156,7 +166,7 @@ float medirDistancia() {
 }
 
 // =====================================================
-// MODO AUTOMATICO DEL DESAFIO
+// MODO AUTOMATICO
 // 150-200 cm: DERECHA
 // 100-140 cm: IZQUIERDA
 // Otros valores: DETENIDO
@@ -172,7 +182,7 @@ void controlarAutomaticamente() {
 }
 
 // =====================================================
-// CREAR RESPUESTA JSON PARA LA APP
+// ESTADO JSON PARA ANDROID
 // =====================================================
 String crearEstadoJSON() {
   String modo =
@@ -197,222 +207,57 @@ String crearEstadoJSON() {
   return json;
 }
 
-// =====================================================
-// ENVIAR RESPUESTA HTTP
-// =====================================================
-void enviarRespuesta(
-  WiFiClient &cliente,
-  int codigoHTTP,
-  const String &contenido
-) {
-  cliente.print("HTTP/1.1 ");
-  cliente.print(codigoHTTP);
+void publicarEstado() {
+  String json = crearEstadoJSON();
 
-  if (codigoHTTP == 200) {
-    cliente.println(" OK");
-  } else if (codigoHTTP == 404) {
-    cliente.println(" Not Found");
-  } else {
-    cliente.println(" Bad Request");
+  // La característica admite hasta 128 bytes.
+  if (json.length() <= 128) {
+    statusCharacteristic.writeValue(json);
   }
-
-  cliente.println(
-      "Content-Type: application/json; charset=utf-8"
-  );
-  cliente.println("Cache-Control: no-store");
-  cliente.println("Connection: close");
-  cliente.println("Access-Control-Allow-Origin: *");
-  cliente.println();
-
-  cliente.println(contenido);
 }
 
 // =====================================================
-// SERVIDOR HTTP PARA LA APP ANDROID
+// PROCESAR COMANDOS BLE
+// R = DERECHA
+// L = IZQUIERDA
+// S = DETENER
+// A = AUTOMATICO
+// M = MANUAL
 // =====================================================
-void atenderCliente() {
-  WiFiClient cliente = server.available();
-
-  if (!cliente) {
+void procesarComandoBLE() {
+  if (!commandCharacteristic.written()) {
     return;
   }
 
-  cliente.setTimeout(1000);
+  String comando = commandCharacteristic.value();
+  comando.trim();
+  comando.toUpperCase();
 
-  String solicitud = cliente.readStringUntil('\n');
-  solicitud.trim();
+  Serial.print("Comando BLE: ");
+  Serial.println(comando);
 
-  Serial.print("Solicitud HTTP: ");
-  Serial.println(solicitud);
-
-  // Leer encabezados HTTP.
-  while (cliente.connected()) {
-    String encabezado =
-        cliente.readStringUntil('\n');
-
-    if (encabezado == "\r" ||
-        encabezado.length() == 0) {
-      break;
-    }
-  }
-
-  String respuesta;
-  int codigoHTTP = 200;
-
-  if (solicitud.startsWith("GET /status ")) {
-    respuesta = crearEstadoJSON();
-
-  } else if (
-      solicitud.startsWith("GET /cmd?value=R ")) {
+  if (comando == "R") {
     modoAutomatico = false;
     girarDerecha();
-    respuesta = crearEstadoJSON();
 
-  } else if (
-      solicitud.startsWith("GET /cmd?value=L ")) {
+  } else if (comando == "L") {
     modoAutomatico = false;
     girarIzquierda();
-    respuesta = crearEstadoJSON();
 
-  } else if (
-      solicitud.startsWith("GET /cmd?value=S ")) {
+  } else if (comando == "S") {
     modoAutomatico = false;
     detenerMotor();
-    respuesta = crearEstadoJSON();
 
-  } else if (
-      solicitud.startsWith("GET /mode?value=A ")) {
+  } else if (comando == "A") {
     modoAutomatico = true;
     controlarAutomaticamente();
-    respuesta = crearEstadoJSON();
 
-  } else if (
-      solicitud.startsWith("GET /mode?value=M ")) {
+  } else if (comando == "M") {
     modoAutomatico = false;
     detenerMotor();
-    respuesta = crearEstadoJSON();
-
-  } else {
-    codigoHTTP = 404;
-    respuesta =
-        "{\"success\":false,\"message\":\"Ruta no encontrada\"}";
   }
 
-  enviarRespuesta(cliente, codigoHTTP, respuesta);
-
-  delay(2);
-  cliente.stop();
-}
-
-// =====================================================
-// CONEXION WIFI
-// =====================================================
-bool conectarWiFi() {
-  Serial.println("Inicializando Wi-Fi...");
-
-  if (WiFi.status() == WL_NO_MODULE) {
-    Serial.println(
-        "ERROR: modulo Wi-Fi no disponible."
-    );
-    return false;
-  }
-
-  unsigned long inicio = millis();
-
-  while (WiFi.status() != WL_CONNECTED &&
-         millis() - inicio < 30000) {
-
-    Serial.print("Conectando a: ");
-    Serial.println(ssid);
-
-    WiFi.begin(ssid, pass);
-
-    unsigned long intento = millis();
-
-    while (WiFi.status() != WL_CONNECTED &&
-           millis() - intento < 5000) {
-      delay(250);
-    }
-  }
-
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println(
-        "ERROR: no se pudo conectar al Wi-Fi."
-    );
-    Serial.println(
-        "Revisa el hotspot y las credenciales."
-    );
-    return false;
-  }
-
-  Serial.println("Wi-Fi conectado correctamente.");
-
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  Serial.print("IP del Arduino: ");
-  Serial.println(WiFi.localIP());
-
-  server.begin();
-  servidorIniciado = true;
-
-  Serial.println(
-      "Servidor HTTP iniciado en puerto 80."
-  );
-  Serial.println(
-      "R = Derecha | L = Izquierda | S = Detener"
-  );
-  Serial.println(
-      "A = Automatico | M = Manual"
-  );
-  Serial.println("==========================================");
-
-  return true;
-}
-
-// =====================================================
-// COMANDOS OPCIONALES DEL MONITOR SERIE
-// =====================================================
-void procesarComandosSerial() {
-  while (Serial.available() > 0) {
-    char comando = Serial.read();
-
-    if (comando == '\n' ||
-        comando == '\r' ||
-        comando == ' ') {
-      continue;
-    }
-
-    if (comando == 'R' || comando == 'r') {
-      modoAutomatico = false;
-      girarDerecha();
-      Serial.println("Comando R: DERECHA");
-
-    } else if (comando == 'L' || comando == 'l') {
-      modoAutomatico = false;
-      girarIzquierda();
-      Serial.println("Comando L: IZQUIERDA");
-
-    } else if (comando == 'S' || comando == 's') {
-      modoAutomatico = false;
-      detenerMotor();
-      Serial.println("Comando S: DETENIDO");
-
-    } else if (comando == 'A' || comando == 'a') {
-      modoAutomatico = true;
-      controlarAutomaticamente();
-      Serial.println("Modo AUTOMATICO");
-
-    } else if (comando == 'M' || comando == 'm') {
-      modoAutomatico = false;
-      detenerMotor();
-      Serial.println("Modo MANUAL");
-
-    } else {
-      Serial.print("Comando desconocido: ");
-      Serial.println(comando);
-    }
-  }
+  publicarEstado();
 }
 
 // =====================================================
@@ -421,55 +266,55 @@ void procesarComandosSerial() {
 void setup() {
   Serial.begin(115200);
 
-  // Alimentación del sensor según el proyecto original.
   pinMode(VCC_PIN, OUTPUT);
   digitalWrite(VCC_PIN, HIGH);
 
   pinMode(GND_PIN, OUTPUT);
   digitalWrite(GND_PIN, LOW);
 
-  // Inicializar el shield y el motor.
   setupMotorShield();
 
-  // Inicializar el sensor.
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   digitalWrite(TRIG_PIN, LOW);
 
-  Serial.println("EAI441 - ControlGiro");
-  Serial.println("Arduino UNO R4 WiFi");
+  Serial.println("EAI441 - ControlGiro BLE");
+  Serial.println("Inicializando Bluetooth...");
 
-  if (!conectarWiFi()) {
-    detenerMotor();
+  if (!BLE.begin()) {
+    Serial.println("ERROR: No se pudo iniciar BLE.");
+
+    while (true) {
+      detenerMotor();
+      delay(1000);
+    }
   }
+
+  BLE.setLocalName("ControlGiro-BLE");
+  BLE.setAdvertisedService(controlService);
+
+  controlService.addCharacteristic(commandCharacteristic);
+  controlService.addCharacteristic(statusCharacteristic);
+
+  BLE.addService(controlService);
+
+  commandCharacteristic.writeValue("S");
+  publicarEstado();
+
+  BLE.advertise();
+
+  Serial.println("BLE iniciado.");
+  Serial.println("Nombre: ControlGiro-BLE");
+  Serial.println("Esperando conexion...");
 }
 
 // =====================================================
 // LOOP PRINCIPAL
 // =====================================================
 void loop() {
-  procesarComandosSerial();
+  BLE.poll();
 
-  if (WiFi.status() != WL_CONNECTED) {
-    detenerMotor();
-    servidorIniciado = false;
-
-    if (conectarWiFi()) {
-      servidorIniciado = true;
-    }
-
-    delay(100);
-    return;
-  }
-
-  if (!servidorIniciado) {
-    server.begin();
-    servidorIniciado = true;
-
-    Serial.println(
-        "Servidor HTTP reiniciado en puerto 80."
-    );
-  }
+  procesarComandoBLE();
 
   if (millis() - ultimaMedicion >=
       INTERVALO_MEDICION) {
@@ -482,5 +327,12 @@ void loop() {
     }
   }
 
-  atenderCliente();
+  if (millis() - ultimaNotificacion >=
+      INTERVALO_NOTIFICACION) {
+
+    ultimaNotificacion = millis();
+    publicarEstado();
+  }
+
+  BLE.poll();
 }
