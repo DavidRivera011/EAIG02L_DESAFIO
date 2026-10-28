@@ -54,16 +54,16 @@
             android:layout_marginTop="6dp" />
 
         <!-- Escudo: espacio reservado -->
-        <TextView
-            android:id="@+id/txtBarcelona"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="FC BARCELONA"
-            android:textColor="#F5C542"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:padding="16dp"
-            android:layout_marginTop="12dp" />
+        <!-- Escudo del FC Barcelona -->
+        <ImageView
+            android:id="@+id/imgBarcelona"
+            android:layout_width="110dp"
+            android:layout_height="110dp"
+            android:src="@drawable/barca"
+            android:contentDescription="Escudo del FC Barcelona"
+            android:scaleType="fitCenter"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="8dp" />
 
         <!-- Estado de conexión -->
         <TextView
